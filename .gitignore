@@ -233,16 +233,22 @@ frontend/yarn-error.log*
 # FastAPI backend
 # =========================
 backend/__pycache__/
+# Database / local files
+backend/instance/pms.db
 backend/venv/
 backend/.env
+
 *.pyc
 
 # =========================
 # OS / logs / misc
 # =========================
+# OS / misc
 .DS_Store
 Thumbs.db
 *.log
+
+
 
 # =========================
 # Local data / outputs
