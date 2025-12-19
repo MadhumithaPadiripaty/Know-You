@@ -9,7 +9,9 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://know-you-eta.vercel.app"
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -37,7 +39,7 @@ def read_file(file: UploadFile):
     finally:
         os.remove(path)
     return df
-
+ 
 def safe_float(val):
     try:
         f = float(val)
