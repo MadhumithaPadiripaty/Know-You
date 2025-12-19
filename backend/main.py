@@ -10,7 +10,9 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://know-you-eta.vercel.app"
+        "https://know-you-eta.vercel.app",
+        "https://know-you-m73y.onrender.com"
+
     ],
     allow_methods=["*"],
     allow_headers=["*"],
