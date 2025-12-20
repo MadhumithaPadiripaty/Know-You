@@ -63,7 +63,6 @@ def find_column(df: pd.DataFrame, keywords: List[str]):
         col_lower = col.lower()
         for kw in keywords:
             if kw in col_lower:
-                # print("-->1",col)
                 return col
     return None
 
@@ -79,11 +78,9 @@ def is_numeric_column(col, sample_size=5, threshold=0.6):
         return cleaned.replace(".", "", 1).replace("-", "", 1).isdigit() if cleaned else False
 
     numeric_count = col_sample.apply(check_numeric).sum()
-    # print("-->2 ",col_sample,"-->3",numeric_count)
     return numeric_count / max(1, len(col_sample)) >= threshold
 
 def clean_numeric(col):
-    # print("-->5",col)
     return col.astype(str).str.replace(r"[^\d\.\-]", "", regex=True).replace("", 0).astype(float)
 
 # -----------------------------
@@ -113,12 +110,10 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
         if col not in [unit_price_col, cost_col, quantity_col] and is_numeric_column(combined_df[col]):
             numeric_input_cols.append(col)
             combined_df[col] = clean_numeric(combined_df[col])
-    # print ("-->6",numeric_input_cols)
     # Clean -->unit, cost, quantity columns
     for col in [unit_price_col, cost_col, quantity_col]:
         if col and col in combined_df.columns:
             combined_df[col] = clean_numeric(combined_df[col])
-            print("!!",combined_df[col])
 
     # Replace NaN values ONLY in partially-filled columns        
     for col in combined_df.columns:
@@ -148,28 +143,21 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
             match = pattern.match(col)
             if match:
                 periods.add(match.group(1).title())  # Capture 'Daily', 'Weekly', etc.
-        # print ("-->0.1",periods,cost_col) 
         if periods:
             for period in periods:
                 revenue_col = f"{period} Revenue"
                 cost_col_name = f"{period} Cost"
                 profit_col = f"{period} Profit"
-                # print("---1.2",df[revenue_col].isna())
                 # Revenue calculation: only if column exists and is all NaN
                 if unit_price_col and quantity_col and revenue_col in df.columns and df[revenue_col].isna().all():
                     df[revenue_col] = df[unit_price_col] * df[quantity_col]
-                    print ("-->1",df[revenue_col]) 
                 # Cost calculation: only if column exists and is all NaN 
-                # print("---1.2",df[cost_col_name].isna())
                 if cost_col and quantity_col and cost_col_name in df.columns and df[cost_col_name].isna().all():
                     df[cost_col_name] = df[cost_col] * df[quantity_col]
-                    print ("-->2",df[cost_col_name]) 
                 # Profit calculation: only if column exists and is all NaN
                 
                 revenue_exists = revenue_col in df.columns and not df[revenue_col].isna().all()
                 cost_exists = cost_col_name in df.columns and not df[cost_col_name].isna().all()
-                print("!!!",revenue_exists)
-                print("!!!",cost_exists)
                 if revenue_exists and cost_exists:
                     df[profit_col] = df[revenue_col].fillna(0) - df[cost_col_name].fillna(0)
                 elif revenue_exists:
@@ -177,13 +165,10 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
                 elif cost_exists:
                     df[profit_col] = -df[cost_col_name].fillna(0)
                     # else: leave Profit as NaN
-                    # print ("-->3",df[profit_col]) 
 
         elif "Profit" not in df.columns and (revenue_col or cost_col_name):
             revenue_exists = revenue_col in df.columns and not df[revenue_col].isna().all()
             cost_exists = cost_col_name in df.columns and not df[cost_col_name].isna().all()
-            print("!!!",revenue_exists)
-            print("!!!",cost_exists)
             if revenue_exists and cost_exists:
                 df[profit_col] = df[revenue_col].fillna(0) - df[cost_col_name].fillna(0)
             elif revenue_exists:
@@ -198,7 +183,6 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
     cost_col=cost_col,
     quantity_col=quantity_col
 )
-    print(unit_price_col)
     def drop_all_nan_columns(df):
         """
         Removes columns that are entirely NaN
@@ -209,22 +193,16 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
     
 
 
-    print ("-->8",combined_df)  
-
-
     # Column totals for numeric columns
     numeric_cols = [c for c in combined_df.columns if is_numeric_column(combined_df[c])]
     column_totals = {col: float(combined_df[col].sum()) for col in numeric_cols}
  
-    # print('-->7',numeric_cols)
-    # print('-->8',column_totals)
     # -----------------------------
     # Top N profitable rows
     # -----------------------------
     top_items = []
     if "Profit" in combined_df.columns:
         top_items = combined_df.sort_values(by="Profit", ascending=False).head(top_n).to_dict(orient="records")
-    print("-->9",top_items)
     return {
         "rows": len(combined_df),
         "columns": combined_df.columns.tolist(),
