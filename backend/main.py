@@ -140,11 +140,14 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
         periods = set()
 
         for col in df.columns:
-            match = pattern.match(col)
+            match = pattern.match(col) 
             if match:
                 periods.add(match.group(1).title())  # Capture 'Daily', 'Weekly', etc.
+        profit_in_table = any(col.lower() == "profit" for col in combined_df.columns)
+
         if periods:
             for period in periods:
+                # create a generic column name
                 revenue_col = f"{period} Revenue"
                 cost_col_name = f"{period} Cost"
                 profit_col = f"{period} Profit"
@@ -165,18 +168,24 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
                 elif cost_exists:
                     df[profit_col] = -df[cost_col_name].fillna(0)
                     # else: leave Profit as NaN
+        
+        elif profit_in_table==False:
+            
+            unit_exists = unit_price_col in df.columns and not df[unit_price_col].isna().all()
+            cost_exists = cost_col in df.columns and not df[cost_col].isna().all()
+            qty_exists = quantity_col in df.columns and not df[quantity_col].isna().all()
+            profit_col="profit" # create a generic profit column name
+            if unit_exists and cost_exists and qty_exists:
+                df[profit_col] = (df[unit_price_col].fillna(0) - df[cost_col].fillna(0)) * df[quantity_col].fillna(0)
 
-        elif "Profit" not in df.columns and (revenue_col or cost_col_name):
-            revenue_exists = revenue_col in df.columns and not df[revenue_col].isna().all()
-            cost_exists = cost_col_name in df.columns and not df[cost_col_name].isna().all()
-            if revenue_exists and cost_exists:
-                df[profit_col] = df[revenue_col].fillna(0) - df[cost_col_name].fillna(0)
-            elif revenue_exists:
-                df[profit_col] = df[revenue_col].fillna(0)   
-            elif cost_exists:
-                df[profit_col] = -df[cost_col_name].fillna(0)
+            elif unit_exists and qty_exists:
+                df[profit_col] = df[unit_price_col].fillna(0) * df[quantity_col].fillna(0)
+
+            elif cost_exists and qty_exists:
+                df[profit_col] = -(df[cost_col].fillna(0) * df[quantity_col].fillna(0))
+            elif unit_exists :
+                df[profit_col] = df[unit_price_col].fillna(0)
         return df
-    
     combined_df = calculate_financials_dynamic(
     combined_df,
     unit_price_col=unit_price_col,
@@ -189,7 +198,7 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
         """
         return df.dropna(axis=1, how="all")
 
-    combined_df = drop_all_nan_columns(combined_df)
+    combined_df = drop_all_nan_columns(combined_df) 
     
 
 
@@ -201,8 +210,12 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
     # Top N profitable rows
     # -----------------------------
     top_items = []
-    if "Profit" in combined_df.columns:
-        top_items = combined_df.sort_values(by="Profit", ascending=False).head(top_n).to_dict(orient="records")
+    profit_in_table = profit_col = next(
+            (col for col in combined_df.columns if col.lower() == "profit"),
+            None
+        )
+    if profit_in_table in combined_df.columns:
+        top_items = combined_df.sort_values(by=profit_in_table, ascending=False).head(top_n).to_dict(orient="records")
     return {
         "rows": len(combined_df),
         "columns": combined_df.columns.tolist(),
