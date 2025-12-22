@@ -143,7 +143,7 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
             match = pattern.match(col) 
             if match:
                 periods.add(match.group(1).title())  # Capture 'Daily', 'Weekly', etc.
-        profit_in_table = any(col.lower() == "profit" for col in combined_df.columns)
+        profit_in_table = any('profit' in col.lower() for col in combined_df.columns)
 
         if periods:
             for period in periods:
@@ -168,7 +168,7 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
                 elif cost_exists:
                     df[profit_col] = -df[cost_col_name].fillna(0)
                     # else: leave Profit as NaN
-        
+
         elif profit_in_table==False:
             
             unit_exists = unit_price_col in df.columns and not df[unit_price_col].isna().all()
@@ -185,6 +185,7 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
                 df[profit_col] = -(df[cost_col].fillna(0) * df[quantity_col].fillna(0))
             elif unit_exists :
                 df[profit_col] = df[unit_price_col].fillna(0)
+
         return df
     combined_df = calculate_financials_dynamic(
     combined_df,
@@ -200,8 +201,6 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
 
     combined_df = drop_all_nan_columns(combined_df) 
     
-
-
     # Column totals for numeric columns
     numeric_cols = [c for c in combined_df.columns if is_numeric_column(combined_df[c])]
     column_totals = {col: float(combined_df[col].sum()) for col in numeric_cols}
@@ -210,14 +209,14 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
     # Top N profitable rows
     # -----------------------------
     top_items = []
-    profit_in_table = profit_col = next(
-            (col for col in combined_df.columns if col.lower() == "profit"),
+    profit_in_table =  next(
+            (col for col in combined_df.columns if 'profit' in col.lower()),
             None
         )
     if profit_in_table in combined_df.columns:
         top_items = combined_df.sort_values(by=profit_in_table, ascending=False).head(top_n).to_dict(orient="records")
     return {
-        "rows": len(combined_df),
+        "rows": len(combined_df), 
         "columns": combined_df.columns.tolist(),
         "column_totals": column_totals,
         "top_items": top_items
