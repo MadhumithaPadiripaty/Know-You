@@ -1,5 +1,10 @@
 from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from motor.motor_asyncio import AsyncIOMotorClient
+from datetime import datetime
+import logging
 import pandas as pd
 import tempfile, os
 from typing import List
@@ -7,16 +12,84 @@ import math
 
 app = FastAPI() 
 
+logging.basicConfig(level=logging.INFO)
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://know-you-eta.vercel.app",
+    allow_origins=["*",
+        "https://www.knowyourpay.com",
         "https://know-you-m73y.onrender.com"
 
     ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# --------------------
+# API routes
+# --------------------
+@app.get("/api/health")
+def health():
+    return {"message": "FastAPI backend is running"}
+
+# MongoDB connection
+MONGO_URI = "mongodb"
+client = AsyncIOMotorClient(MONGO_URI)
+db = client.get_default_database()
+
+@app.on_event("startup")
+async def startup_db():
+    print("Connected to MongoDB")
+
+# Middleware to log visits
+@app.middleware("http")
+async def log_visits(request: Request, call_next):
+    ip = request.client.host
+    url = str(request.url)
+    
+    # Store visit
+    await db.visits.insert_one({
+        "ip": ip,
+        "url": url,
+        "timestamp": datetime.utcnow()
+    })
+    
+    response = await call_next(request)
+    return response
+
+# Endpoint to submit comment
+@app.post("/comment")
+async def submit_comment(username: str = Form(...), comment: str = Form(...)):
+    doc = {
+        "username": username,
+        "comment": comment,
+        "timestamp": datetime.utcnow()
+    }
+    await db.comments.insert_one(doc)
+    return JSONResponse({"status": "success", "message": "Comment saved"})
+
+# Endpoint to get stats
+@app.get("/stats")
+async def get_stats():
+    total_visits = await db.visits.count_documents({})
+    unique_visitors = await db.visits.distinct("ip")
+    total_unique = len(unique_visitors)
+
+    analyze_count = await db.visits.count_documents({"url": {"$regex": "analyze"}})
+    
+    return {
+        "total_visits": total_visits,
+        "unique_visitors": total_unique,
+        "analyze_count": analyze_count
+    }
+
+# Endpoint to get comments
+@app.get("/comments")
+async def get_comments():
+    comments = await db.comments.find().to_list(length=100)
+    return comments
+
 
 # -----------------------------
 # Helpers
@@ -168,7 +241,7 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
                 elif cost_exists:
                     df[profit_col] = -df[cost_col_name].fillna(0)
                     # else: leave Profit as NaN
-
+ 
         elif profit_in_table==False:
             
             unit_exists = unit_price_col in df.columns and not df[unit_price_col].isna().all()
@@ -193,6 +266,7 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
     cost_col=cost_col,
     quantity_col=quantity_col
 )
+    print(combined_df)
     def drop_all_nan_columns(df):
         """
         Removes columns that are entirely NaN
@@ -223,4 +297,4 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
     }
 
  
-
+ 
