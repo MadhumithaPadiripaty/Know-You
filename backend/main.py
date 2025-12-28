@@ -44,7 +44,7 @@ async def lifespan(app: FastAPI):
     global client, db
     # Startup: connect to MongoDB
     client = AsyncIOMotorClient(MONGODB_URI)
-    db = client.get_default_database()
+    db = client["know_your_pay"]
     print("Connected to MongoDB")
     yield
     # Shutdown: close MongoDB connection
