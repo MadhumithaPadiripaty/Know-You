@@ -6,6 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
+from pymongo.errors import PyMongoError
 import logging
 import pandas as pd
 import tempfile, os
@@ -74,16 +75,19 @@ def health():
 # Middleware to log visits
 @app.middleware("http")
 async def log_visits(request: Request, call_next):
-    ip = request.client.host
+    ip = request.client.host if request.client else None
     url = str(request.url)
-    
-    # Store visit with timezone-aware timestamp
-    await db.visits.insert_one({
-        "ip": ip,
-        "url": url,
-        "timestamp": datetime.now(timezone.utc)
-    })
-    
+
+    try:
+        await db.visits.insert_one({
+            "ip": ip,
+            "url": url,
+            "timestamp": datetime.now(timezone.utc),
+        })
+    except PyMongoError as e:
+        # Log the error but DO NOT crash the request
+        print("Visit logging failed:", e)
+
     response = await call_next(request)
     return response
 
