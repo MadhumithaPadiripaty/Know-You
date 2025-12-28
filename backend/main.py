@@ -3,7 +3,9 @@ from fastapi import FastAPI, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
-from datetime import datetime
+from dotenv import load_dotenv
+from datetime import datetime, timezone
+from contextlib import asynccontextmanager
 import logging
 import pandas as pd
 import tempfile, os
@@ -11,9 +13,9 @@ from typing import List
 import math
 
 app = FastAPI() 
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,23 +26,38 @@ app.add_middleware(
     ],
     allow_methods=["*"],
     allow_headers=["*"],
-)
+) 
 
-# --------------------
+# --------------------  
 # API routes
 # --------------------
+# MongoDB URI from environment
+MONGODB_URI = os.getenv("MONGO_URI")
+
+# Global MongoDB client and db
+client = None
+db = None
+
+# Lifespan event to handle startup and shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global client, db
+    # Startup: connect to MongoDB
+    client = AsyncIOMotorClient(MONGODB_URI)
+    db = client.get_default_database()
+    print("Connected to MongoDB")
+    yield
+    # Shutdown: close MongoDB connection
+    client.close()
+    print("MongoDB connection closed")
+
+# Initialize FastAPI with lifespan
+app = FastAPI(lifespan=lifespan)
+
+# Health check
 @app.get("/api/health")
 def health():
     return {"message": "FastAPI backend is running"}
-
-# MongoDB connection
-MONGO_URI = "mongodb"
-client = AsyncIOMotorClient(MONGO_URI)
-db = client.get_default_database()
-
-@app.on_event("startup")
-async def startup_db():
-    print("Connected to MongoDB")
 
 # Middleware to log visits
 @app.middleware("http")
@@ -48,11 +65,11 @@ async def log_visits(request: Request, call_next):
     ip = request.client.host
     url = str(request.url)
     
-    # Store visit
+    # Store visit with timezone-aware timestamp
     await db.visits.insert_one({
         "ip": ip,
         "url": url,
-        "timestamp": datetime.utcnow()
+        "timestamp": datetime.now(timezone.utc)
     })
     
     response = await call_next(request)
@@ -64,7 +81,7 @@ async def submit_comment(username: str = Form(...), comment: str = Form(...)):
     doc = {
         "username": username,
         "comment": comment,
-        "timestamp": datetime.utcnow()
+        "timestamp": datetime.now(timezone.utc)  # timezone-aware
     }
     await db.comments.insert_one(doc)
     return JSONResponse({"status": "success", "message": "Comment saved"})
@@ -75,7 +92,6 @@ async def get_stats():
     total_visits = await db.visits.count_documents({})
     unique_visitors = await db.visits.distinct("ip")
     total_unique = len(unique_visitors)
-
     analyze_count = await db.visits.count_documents({"url": {"$regex": "analyze"}})
     
     return {
@@ -89,8 +105,6 @@ async def get_stats():
 async def get_comments():
     comments = await db.comments.find().to_list(length=100)
     return comments
-
-
 # -----------------------------
 # Helpers
 # -----------------------------
