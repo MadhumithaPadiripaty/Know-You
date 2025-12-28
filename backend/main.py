@@ -12,21 +12,21 @@ import tempfile, os
 from typing import List
 import math
 
-app = FastAPI(lifespan=lifespan) 
+# app = FastAPI() 
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*",
-        "https://www.knowyourpay.com",
-        "https://know-you-m73y.onrender.com"
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*",
+#         "https://www.knowyourpay.com",
+#         "https://know-you-m73y.onrender.com"
 
-    ],
-    allow_methods=["*"],
-    allow_headers=["*"],
-) 
+#     ],
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# ) 
 
 # --------------------  
 # API routes
@@ -52,7 +52,19 @@ async def lifespan(app: FastAPI):
     print("MongoDB connection closed")
 
 # Initialize FastAPI with lifespan
-# app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*",
+        "https://www.knowyourpay.com",
+        "https://know-you-m73y.onrender.com"
+
+    ],
+    allow_methods=["*"],
+    allow_headers=["*"],
+) 
+
 
 # Health check
 @app.get("/api/health")
