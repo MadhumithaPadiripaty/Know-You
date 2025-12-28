@@ -12,7 +12,7 @@ import tempfile, os
 from typing import List
 import math
 
-app = FastAPI() 
+app = FastAPI(lifespan=lifespan) 
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
     print("MongoDB connection closed")
 
 # Initialize FastAPI with lifespan
-app = FastAPI(lifespan=lifespan)
+# app = FastAPI(lifespan=lifespan)
 
 # Health check
 @app.get("/api/health")
