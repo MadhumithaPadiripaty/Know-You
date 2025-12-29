@@ -5,55 +5,19 @@ from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from datetime import datetime, timezone
-from contextlib import asynccontextmanager
-from pymongo.errors import PyMongoError
+from database import mongo_lifespan 
 import logging
 import pandas as pd
 import tempfile, os
 from typing import List
 import math
 
-# app = FastAPI() 
-load_dotenv()
+
+app = FastAPI(lifespan=mongo_lifespan) 
+# load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["*",
-#         "https://www.knowyourpay.com",
-#         "https://know-you-m73y.onrender.com"
-
-#     ],
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# ) 
-
-# --------------------  
-# API routes
-# --------------------
-# MongoDB URI from environment
-MONGODB_URI = os.getenv("MONGO_URI")
-
-# Global MongoDB client and db
-client = None
-db = None
-
-# Lifespan event to handle startup and shutdown
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global client, db
-    # Startup: connect to MongoDB
-    client = AsyncIOMotorClient(MONGODB_URI)
-    db = client["know_your_pay"]
-    print("Connected to MongoDB")
-    yield
-    # Shutdown: close MongoDB connection
-    client.close()
-    print("MongoDB connection closed")
-
-# Initialize FastAPI with lifespan
-app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -64,50 +28,59 @@ app.add_middleware(
     ],
     allow_methods=["*"],
     allow_headers=["*"],
-) 
+)
 
-
-# Health check
-@app.get("/api/health")
+# --------------------
+# API routes
+# --------------------
+@app.get("/")
 def health():
     return {"message": "FastAPI backend is running"}
+
+
 
 # Middleware to log visits
 @app.middleware("http")
 async def log_visits(request: Request, call_next):
-    ip = request.client.host if request.client else None
-    url = str(request.url)
-
     try:
+        db = request.app.state.db
         await db.visits.insert_one({
-            "ip": ip,
-            "url": url,
-            "timestamp": datetime.now(timezone.utc),
+            "ip": request.client.host if request.client else "unknown",
+            "url": str(request.url),
+            "timestamp": datetime.now(timezone.utc)
         })
-    except PyMongoError as e:
-        # Log the error but DO NOT crash the request
-        print("Visit logging failed:", e)
+    except Exception as e:
+        logging.error(f"Visit logging failed: {e}")
 
+    
     response = await call_next(request)
     return response
 
 # Endpoint to submit comment
 @app.post("/comment")
-async def submit_comment(username: str = Form(...), comment: str = Form(...)):
+async def submit_comment(request: Request,
+    username: str = Form(...),
+    comment: str = Form(...)
+):
+    db = request.app.state.db
+
     doc = {
         "username": username,
         "comment": comment,
-        "timestamp": datetime.now(timezone.utc)  # timezone-aware
+        "timestamp": datetime.now(timezone.utc)
     }
     await db.comments.insert_one(doc)
     return JSONResponse({"status": "success", "message": "Comment saved"})
 
 # Endpoint to get stats
 @app.get("/stats")
-async def get_stats():
+async def get_stats(request: Request):
+    db = request.app.state.db
+
     total_visits = await db.visits.count_documents({})
     unique_visitors = await db.visits.distinct("ip")
     total_unique = len(unique_visitors)
+
     analyze_count = await db.visits.count_documents({"url": {"$regex": "analyze"}})
     
     return {
@@ -118,9 +91,12 @@ async def get_stats():
 
 # Endpoint to get comments
 @app.get("/comments")
-async def get_comments():
+async def get_comments(request: Request):
+    db = request.app.state.db
     comments = await db.comments.find().to_list(length=100)
     return comments
+
+
 # -----------------------------
 # Helpers
 # -----------------------------
