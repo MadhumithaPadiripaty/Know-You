@@ -11,12 +11,17 @@ MONGO_URI = os.getenv("MONGO_URI")
 DB_NAME = os.getenv("MONGO_DB_NAME", "Know_your_pay")  # fallback name
 
 if not MONGO_URI:
+    logging.info("🛑 MongoDB not connected")
     raise RuntimeError("❌ MONGO_URI environment variable is not set")
 
 @asynccontextmanager
 async def mongo_lifespan(app: FastAPI):
     # Startup
-    app.state.mongo_client = AsyncIOMotorClient(MONGO_URI)
+    app.state.mongo_client = AsyncIOMotorClient(MONGO_URI,tls=True,
+
+tlsAllowInvalidCertificates=True,
+
+serverSelectionTimeoutMS=5000)
     app.state.db = app.state.mongo_client[DB_NAME]
     logging.info("✅ Connected to MongoDB")
 

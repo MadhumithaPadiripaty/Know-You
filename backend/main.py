@@ -2,8 +2,6 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi import FastAPI, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from motor.motor_asyncio import AsyncIOMotorClient
-from dotenv import load_dotenv
 from datetime import datetime, timezone
 from database import mongo_lifespan 
 import logging
@@ -14,26 +12,25 @@ import math
 
 
 app = FastAPI(lifespan=mongo_lifespan) 
-# load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
+    allow_origins=["*",
         "https://www.knowyourpay.com",
         "https://know-you-m73y.onrender.com"
 
     ],
     allow_methods=["*"],
     allow_headers=["*"],
-)
+) 
 
+# -------------------- 
+# API routes 
 # --------------------
-# API routes
-# --------------------
-@app.get("/")
+@app.get("/health")
 def health():
     return {"message": "FastAPI backend is running"}
 
@@ -217,7 +214,7 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
         # Detect periods from column names (e.g., Daily Revenue, Weekly Cost, Monthly Profit)
         pattern = re.compile(r"(\w+)\s+(Revenue|Cost|Profit)", re.IGNORECASE)
         periods = set()
-
+  
         for col in df.columns:
             match = pattern.match(col) 
             if match:
