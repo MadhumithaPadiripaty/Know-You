@@ -22,6 +22,7 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const response = await axios.post(
+        
         "https://know-you-m73y.onrender.com/analyze",
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
@@ -38,7 +39,8 @@ export default function Dashboard() {
   return (
     <div className="dashboard">
       <header className="header">
-        <h1>📊 Business Analysis Dashboard</h1>
+        <img src="/logo.png" alt="Know Your Pay" class="logo" />
+        <h1>Business Analysis Dashboard</h1>
         <p>Upload sales/cost files to analyze revenue & profit</p>
       </header>
 

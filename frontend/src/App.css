@@ -22,6 +22,16 @@ body {
 .header p {
   color: #6b7280;
 }
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  height: 36px;   /* perfect for heading */
+  width: auto;
+}
 
 .card {
   background: white;
