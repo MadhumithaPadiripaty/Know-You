@@ -10,7 +10,13 @@ body {
   margin: auto;
 }
 
+/* ----------------------------- */
+/* HEADER / LOGO */
+/* ----------------------------- */
 .header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 20px;
 }
 
@@ -22,17 +28,15 @@ body {
 .header p {
   color: #6b7280;
 }
-.header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
 
 .logo {
-  height: 36px;   /* perfect for heading */
+  height: 36px;  /* perfect for heading */
   width: auto;
 }
 
+/* ----------------------------- */
+/* CARDS */
+/* ----------------------------- */
 .card {
   background: white;
   border-radius: 12px;
@@ -41,6 +45,9 @@ body {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
 }
 
+/* ----------------------------- */
+/* FORMS & CONTROLS */
+/* ----------------------------- */
 .upload-form {
   display: flex;
   flex-direction: column;
@@ -71,11 +78,17 @@ body {
   background: #1d4ed8;
 }
 
+/* ----------------------------- */
+/* LOADING STATE */
+/* ----------------------------- */
 .loading {
   margin: 20px 0;
   font-weight: bold;
 }
 
+/* ----------------------------- */
+/* STATISTICS GRID */
+/* ----------------------------- */
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -99,6 +112,9 @@ body {
   color: #4b5563;
 }
 
+/* ----------------------------- */
+/* TOTALS GRID */
+/* ----------------------------- */
 .totals-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -113,6 +129,9 @@ body {
   justify-content: space-between;
 }
 
+/* ----------------------------- */
+/* TABLE STYLES */
+/* ----------------------------- */
 .table-wrapper {
   overflow-x: auto;
 }

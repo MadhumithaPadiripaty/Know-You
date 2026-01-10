@@ -9,7 +9,7 @@ import pandas as pd
 import tempfile, os
 from typing import List
 import math
-
+ 
 
 app = FastAPI(lifespan=mongo_lifespan) 
 
@@ -134,14 +134,14 @@ UNIT_PRICE_SYNONYMS = ["unit price", "rate", "list price", "price per", "fee", "
 COST_SYNONYMS = ["unit cost","cost per unit", "cogs", "cost of goods sold", "standard cost", "production cost", "rate"]
 QUANTITY_SYNONYMS = ["quantity", "qty", "sold", "amount","units sold","units"]
 
-def find_column(df: pd.DataFrame, keywords: List[str]):
-    for col in df.columns:
+def find_column(df, keywords: List[str]):
+    for col in df:
         col_lower = col.lower()
         for kw in keywords:
             if kw in col_lower:
                 return col
     return None
-
+ 
 def is_numeric_column(col, sample_size=5, threshold=0.6):
     col_sample = col.dropna().head(sample_size).astype(str)
 
@@ -175,20 +175,11 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
     if combined_df.empty:
         return {"error": "No readable data found"}
 
-    # Identify key columns
-    unit_price_col = find_column(combined_df, UNIT_PRICE_SYNONYMS)
-    cost_col = find_column(combined_df, COST_SYNONYMS)
-    quantity_col = find_column(combined_df, QUANTITY_SYNONYMS)
-
     # Identify numeric columns
     numeric_input_cols = []
     for col in combined_df.columns:
-        if col not in [unit_price_col, cost_col, quantity_col] and is_numeric_column(combined_df[col]):
+        if is_numeric_column(combined_df[col]):
             numeric_input_cols.append(col)
-            combined_df[col] = clean_numeric(combined_df[col])
-    # Clean -->unit, cost, quantity columns
-    for col in [unit_price_col, cost_col, quantity_col]:
-        if col and col in combined_df.columns:
             combined_df[col] = clean_numeric(combined_df[col])
 
     # Replace NaN values ONLY in partially-filled columns        
@@ -205,71 +196,81 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
 
     import re
 
-    def calculate_financials_dynamic(df: pd.DataFrame, unit_price_col=None, cost_col=None, quantity_col=None):
+    def calculate_financials_dynamic(df: pd.DataFrame):
         """
+
         Dynamically calculate Revenue, Cost, and Profit only for periods present in the DataFrame.
         - Only calculates if column exists and is all NaN.
         - Detects periods from existing columns automatically.
         """
+        
         # Detect periods from column names (e.g., Daily Revenue, Weekly Cost, Monthly Profit)
-        pattern = re.compile(r"(\w+)\s+(Revenue|Cost|Profit)", re.IGNORECASE)
-        periods = set()
-  
-        for col in df.columns:
-            match = pattern.match(col) 
-            if match:
-                periods.add(match.group(1).title())  # Capture 'Daily', 'Weekly', etc.
-        profit_in_table = any('profit' in col.lower() for col in combined_df.columns)
-
-        if periods:
-            for period in periods:
+        # pattern = re.compile(r"(\w+)\s+(Revenue|Cost|Profit)", re.IGNORECASE)
+        PERIODIC_keywords = ["Daily", "Weekly", "Monthly", "Yearly"]
+        periodic = {}
+        for period in PERIODIC_keywords:
+            period_lower = period.lower()
+            for col in df.columns:
+                col_lower = col.lower()
+                if period_lower in col_lower:
+                    if period in periodic:
+                        periodic[period]+=[col]
+                    else :
+                        periodic[period]=[col]
+        print(periodic)
+        if len(periodic)!=0:
+            for period in periodic:
+                # Identify key columns
+                unit_price_col = find_column(periodic[period], UNIT_PRICE_SYNONYMS)
+                cost_col = find_column(periodic[period], COST_SYNONYMS)
+                quantity_col = find_column(periodic[period], QUANTITY_SYNONYMS)
+                print("------->",period,unit_price_col)
                 # create a generic column name
                 revenue_col = f"{period} Revenue"
-                cost_col_name = f"{period} Cost"
-                profit_col = f"{period} Profit"
-                # Revenue calculation: only if column exists and is all NaN
-                if unit_price_col and quantity_col and revenue_col in df.columns and df[revenue_col].isna().all():
-                    df[revenue_col] = df[unit_price_col] * df[quantity_col]
+                cost_col_name = f"{period} Cost" 
+                profit_col = f"{period}  Profit"
+                # Revenue calculation: only if column exists and is all NaN revenue_col in df.columns and df[revenue_col].isna().all()
+                if unit_price_col and quantity_col :
+                    df[revenue_col] = round(df[unit_price_col] * df[quantity_col], 2)
+
                 # Cost calculation: only if column exists and is all NaN 
-                if cost_col and quantity_col and cost_col_name in df.columns and df[cost_col_name].isna().all():
-                    df[cost_col_name] = df[cost_col] * df[quantity_col]
+                if cost_col and quantity_col:
+                    df[cost_col_name] = round(df[cost_col] * df[quantity_col] , 2)
+
                 # Profit calculation: only if column exists and is all NaN
                 
-                revenue_exists = revenue_col in df.columns and not df[revenue_col].isna().all()
-                cost_exists = cost_col_name in df.columns and not df[cost_col_name].isna().all()
-                if revenue_exists and cost_exists:
-                    df[profit_col] = df[revenue_col].fillna(0) - df[cost_col_name].fillna(0)
-                elif revenue_exists:
-                    df[profit_col] = df[revenue_col].fillna(0)   
-                elif cost_exists:
-                    df[profit_col] = -df[cost_col_name].fillna(0)
-                    # else: leave Profit as NaN
- 
-        elif profit_in_table==False:
+                if revenue_col and cost_col:
+                    df[profit_col] = round(df[revenue_col] - df[cost_col_name], 2)
+                    print(df[profit_col])
+                elif revenue_col:
+                    df[profit_col] = df[revenue_col]
+                elif cost_col:
+                    df[profit_col] = -df[cost_col_name]   
+                
+        # elif profit_in_table==False:
             
-            unit_exists = unit_price_col in df.columns and not df[unit_price_col].isna().all()
-            cost_exists = cost_col in df.columns and not df[cost_col].isna().all()
-            qty_exists = quantity_col in df.columns and not df[quantity_col].isna().all()
-            profit_col="profit" # create a generic profit column name
-            if unit_exists and cost_exists and qty_exists:
-                df[profit_col] = (df[unit_price_col].fillna(0) - df[cost_col].fillna(0)) * df[quantity_col].fillna(0)
+        #     unit_exists = unit_price_col in df.columns and not df[unit_price_col].isna().all()
+        #     cost_exists = cost_col in df.columns and not df[cost_col].isna().all()
+        #     qty_exists = quantity_col in df.columns and not df[quantity_col].isna().all()
+        #     profit_col="profit" # create a generic profit column name
+        #     if unit_exists and cost_exists and qty_exists:
+        #         df[profit_col] = (df[unit_price_col].fillna(0) - df[cost_col].fillna(0)) * df[quantity_col].fillna(0)
 
-            elif unit_exists and qty_exists:
-                df[profit_col] = df[unit_price_col].fillna(0) * df[quantity_col].fillna(0)
+        #     elif unit_exists and qty_exists:
+        #         df[profit_col] = df[unit_price_col].fillna(0) * df[quantity_col].fillna(0)
 
-            elif cost_exists and qty_exists:
-                df[profit_col] = -(df[cost_col].fillna(0) * df[quantity_col].fillna(0))
-            elif unit_exists :
-                df[profit_col] = df[unit_price_col].fillna(0)
-
-        return df
+        #     elif cost_exists and qty_exists:
+        #         df[profit_col] = -(df[cost_col].fillna(0) * df[quantity_col].fillna(0))
+        #     elif unit_exists :
+                # df[profit_col] = df[unit_price_col].fillna(0)
+        # logging.info(df)
+        return df  
+    
     combined_df = calculate_financials_dynamic(
-    combined_df,
-    unit_price_col=unit_price_col,
-    cost_col=cost_col,
-    quantity_col=quantity_col
+    combined_df
 )
     print(combined_df)
+    # print(combined_df)
     def drop_all_nan_columns(df):
         """
         Removes columns that are entirely NaN
@@ -290,6 +291,7 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
             (col for col in combined_df.columns if 'profit' in col.lower()),
             None
         )
+    
     if profit_in_table in combined_df.columns:
         top_items = combined_df.sort_values(by=profit_in_table, ascending=False).head(top_n).to_dict(orient="records")
     return {
