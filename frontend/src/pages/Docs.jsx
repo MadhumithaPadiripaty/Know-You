@@ -1,4 +1,5 @@
 export default function Docs() {
+    // blog
   return (
     <div className="page">
       <h1>How KnowYourPay Works</h1>
