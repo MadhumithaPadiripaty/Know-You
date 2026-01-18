@@ -22,8 +22,7 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const response = await axios.post(
-        "http://localhost:8000/analyze",
-        // "https://know-you-m73y.onrender.com/analyze",
+        "https://know-you-m73y.onrender.com/analyze",
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
