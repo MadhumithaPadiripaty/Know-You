@@ -1,6 +1,5 @@
 # Know-You
-Automated reporting platform for small businesses — upload a file and get inventory reports.
-KnowYou is a tool that analyzes revenue, cost, and profit from Excel files.
+Automated reporting platform for business report — upload Excel or CSV file and get instantly inventory report on revenue, cost and profit — helping owners understand revenue, cost, and profit without any formulas,no accounting knowledge required.
 
 🔗 Live website: https://knowyourpay.com
 
