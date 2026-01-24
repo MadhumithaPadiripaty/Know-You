@@ -14,29 +14,96 @@ body {
 /* HEADER / LOGO */
 /* ----------------------------- */
 .header {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  border-left: 5px solid #2563eb;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04);
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 14px;
+  margin-bottom: 24px;
+
+}
+
+.logo {
+  height: 38px;
+  width: auto;
 }
 
 .header h1 {
   margin: 0;
+  font-size: 26px;
   color: #1f2937;
 }
 
 .header p {
+  margin: 4px 0 0;
   color: #6b7280;
+  font-size: 15px;
 }
 
-.logo {
-  height: 36px;  /* perfect for heading */
-  width: auto;
+/* About Button */
+.go-to-about-btn {
+  margin-left: auto;
+  background-color: #25a2eb;
+  color: white;
+  border: none;
+  padding: 8px 18px;
+  font-size: 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.25s ease;
 }
 
-/* ----------------------------- */
+.go-to-about-btn:hover {
+  background-color: #4338ca;
+}
+
+.upload-card {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  border-left: 5px solid #2563eb;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04);
+  margin-bottom: 24px;
+}
+
+
+/* ============================= */
+/* FILE UPLOAD BUTTON */
+/* ============================= */
+
+.file-upload {
+  display: inline-block;
+  background-color: #2563eb;
+  color: white;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  width: fit-content;
+  transition: background 0.25s ease, transform 0.15s ease;
+}
+
+.file-upload:hover {
+  background-color: #2563eb;
+  transform: translateY(-1px);
+}
+
+.file-upload:active {
+  transform: translateY(0);
+}
+
+/* Hide default input */
+.file-input {
+  display: none;
+}
+
+/* ============================= */
 /* CARDS */
-/* ----------------------------- */
+/* ============================= */
 .card {
   background: white;
   border-radius: 12px;
@@ -45,13 +112,13 @@ body {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
 }
 
-/* ----------------------------- */
-/* FORMS & CONTROLS */
-/* ----------------------------- */
+/* ============================= */
+/* UPLOAD FORM */
+/* ============================= */
 .upload-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .controls {
@@ -60,9 +127,15 @@ body {
   gap: 10px;
 }
 
+.controls label {
+  font-weight: 600;
+}
+
 .controls input[type="number"] {
   width: 70px;
   padding: 6px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
 }
 
 .controls button {
@@ -75,20 +148,21 @@ body {
 }
 
 .controls button:hover {
-  background: #1d4ed8;
+  background: #1d5ed8;
 }
 
-/* ----------------------------- */
-/* LOADING STATE */
-/* ----------------------------- */
+/* ============================= */
+/* LOADING */
+/* ============================= */
 .loading {
   margin: 20px 0;
   font-weight: bold;
+  text-align: center;
 }
 
-/* ----------------------------- */
-/* STATISTICS GRID */
-/* ----------------------------- */
+/* ============================= */
+/* STATS GRID */
+/* ============================= */
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -97,13 +171,14 @@ body {
 
 .stat h3 {
   margin: 0;
-  color: #6b7280;
   font-size: 14px;
+  color: #6b7280;
 }
 
 .stat p {
   font-size: 24px;
-  margin: 8px 0 0;
+  margin-top: 8px;
+  font-weight: bold;
   color: #111827;
 }
 
@@ -112,9 +187,9 @@ body {
   color: #4b5563;
 }
 
-/* ----------------------------- */
-/* TOTALS GRID */
-/* ----------------------------- */
+/* ============================= */
+/* TOTALS */
+/* ============================= */
 .totals-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -127,11 +202,12 @@ body {
   border-radius: 8px;
   display: flex;
   justify-content: space-between;
+  font-weight: 500;
 }
 
-/* ----------------------------- */
-/* TABLE STYLES */
-/* ----------------------------- */
+/* ============================= */
+/* TABLE */
+/* ============================= */
 .table-wrapper {
   overflow-x: auto;
 }
@@ -144,8 +220,9 @@ table {
 
 th {
   background: #f3f4f6;
-  text-align: left;
   padding: 10px;
+  text-align: left;
+  font-weight: 600;
 }
 
 td {
@@ -155,4 +232,85 @@ td {
 
 tr:hover {
   background: #f9fafb;
+}
+
+/* ============================= */
+/* ABOUT SECTION */
+/* ============================= */
+.about-toggle {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.toggle-btn {
+  background-color: #4f46e5;
+  color: white;
+  border: none;
+  padding: 10px 22px;
+  font-size: 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.toggle-btn:hover {
+  background-color: #4338ca;
+}
+
+.about-container {
+  background-color: #f9fafb;
+  border-left: 4px solid #4f46e5;
+  padding: 20px;
+  margin: 15px 0;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.about-container h2 {
+  margin-top: 0;
+  color: #1f2937;
+}
+
+.about-intro {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.about-details {
+  font-size: 14px;
+  color: #374151;
+}
+
+/* ============================= */
+/* ANIMATIONS */
+/* ============================= */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================= */
+/* RESPONSIVE */
+/* ============================= */
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .go-to-about-btn {
+    margin-left: 0;
+    margin-top: 10px;
+  }
+
+  .header h1 {
+    font-size: 22px;
+  }
 }

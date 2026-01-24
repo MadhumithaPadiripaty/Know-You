@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
+    allow_origins=["*",
         "https://www.knowyourpay.com",
         "https://know-you-m73y.onrender.com"
 

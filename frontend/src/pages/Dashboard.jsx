@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { Link } from "react-router-dom";
 
 export default function Dashboard() {
   const [files, setFiles] = useState([]);
@@ -22,7 +23,8 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const response = await axios.post(        
-        "https://know-you-m73y.onrender.com/analyze",
+        "http://localhost:8000/analyze",
+        // "https://know-you-m73y.onrender.com/analyze",
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
@@ -41,14 +43,36 @@ export default function Dashboard() {
         <img src="/logo.png" alt="Know Your Pay" class="logo" />
         <h1>Business Analysis Dashboard</h1>
         <p>Upload sales/cost files to analyze revenue & profit</p>
+        {/* About Page Link */}
+        <Link to="/about">
+          <button className="go-to-about-btn">About</button>
+        </Link>
       </header>
 
       {/* Upload Card */}
       <div className="card upload-card">
         <form onSubmit={handleSubmit} className="upload-form">
-          <input type="file" multiple onChange={handleFileChange} />
+          {/* File selector row */}
+          <div className="file-row">
+            <label className="file-upload">
+              Choose Files
+              <input
+                type="file"
+                multiple
+                onChange={handleFileChange}
+                className="file-input"
+              />
+            </label>
+
+            <span className="file-status">
+              {files.length === 0 && "No files selected"}
+              {files.length > 0 && files.map((file) => file.name).join(", ")}
+            </span>
+          </div>
+
+          {/* Controls */}
           <div className="controls">
-            <label>Top N</label>
+            <label>Top performance</label>
             <input
               type="number"
               min="1"
@@ -96,7 +120,7 @@ export default function Dashboard() {
           {/* Top Items */}
           {results.top_items.length > 0 && (
             <div className="card">
-              <h3>🏆 Top {topN} Items by Profit</h3>
+              <h3>🏆 Top {topN} Products by Profit</h3>
               <div className="table-wrapper">
                 <table>
                   <thead>
