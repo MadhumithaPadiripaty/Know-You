@@ -220,34 +220,56 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
         print(periodic)
         if len(periodic)!=0:
             for period in periodic:
-                # Identify key columns
                 unit_price_col = find_column(periodic[period], UNIT_PRICE_SYNONYMS)
                 cost_col = find_column(periodic[period], COST_SYNONYMS)
                 quantity_col = find_column(periodic[period], QUANTITY_SYNONYMS)
-                print("------->",period,unit_price_col)
-                # create a generic column name
+
                 revenue_col = f"{period} Revenue"
-                cost_col_name = f"{period} Cost" 
-                profit_col = f"{period}  Profit"
-                # Revenue calculation: only if column exists and is all NaN revenue_col in df.columns and df[revenue_col].isna().all()
-                if unit_price_col and quantity_col :
-                    df[revenue_col] = round(df[unit_price_col] * df[quantity_col], 2)
+                cost_col_name = f"{period} Cost"
+                profit_col = f"{period} Profit"
 
-                # Cost calculation: only if column exists and is all NaN 
-                if cost_col and quantity_col:
-                    df[cost_col_name] = round(df[cost_col] * df[quantity_col] , 2)
+                # -------------------------
+                # Revenue
+                # -------------------------
+                if (
+                    unit_price_col
+                    and quantity_col
+                    and unit_price_col in df.columns
+                    and quantity_col in df.columns
+                ):
+                    df[revenue_col] = (df[unit_price_col] * df[quantity_col]).round(2)
+                else:
+                    df.drop(columns=[revenue_col], errors="ignore", inplace=True)
 
-                # Profit calculation: only if column exists and is all NaN
-                
-                if revenue_col and cost_col:
-                    df[profit_col] = round(df[revenue_col] - df[cost_col_name], 2)
-                    print(df[profit_col])
-                elif revenue_col:
+                # -------------------------
+                # Cost
+                # -------------------------
+                if (
+                    cost_col
+                    and quantity_col
+                    and cost_col in df.columns
+                    and quantity_col in df.columns
+                ):
+                    df[cost_col_name] = (df[cost_col] * df[quantity_col]).round(2)
+                else:
+                    df.drop(columns=[cost_col_name], errors="ignore", inplace=True)
+
+                # -------------------------
+                # Profit
+                # -------------------------
+                if revenue_col in df.columns and cost_col_name in df.columns:
+                    df[profit_col] = (df[revenue_col] - df[cost_col_name]).round(2)
+
+                elif revenue_col in df.columns:
                     df[profit_col] = df[revenue_col]
-                elif cost_col:
-                    df[profit_col] = -df[cost_col_name]   
-                
-        # elif profit_in_table==False:
+
+                elif cost_col_name in df.columns:
+                    df[profit_col] = -df[cost_col_name]
+
+                else:
+                    df.drop(columns=[profit_col], errors="ignore", inplace=True)
+
+        # else:
             
         #     unit_exists = unit_price_col in df.columns and not df[unit_price_col].isna().all()
         #     cost_exists = cost_col in df.columns and not df[cost_col].isna().all()
@@ -255,7 +277,7 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
         #     profit_col="profit" # create a generic profit column name
         #     if unit_exists and cost_exists and qty_exists:
         #         df[profit_col] = (df[unit_price_col].fillna(0) - df[cost_col].fillna(0)) * df[quantity_col].fillna(0)
-
+ 
         #     elif unit_exists and qty_exists:
         #         df[profit_col] = df[unit_price_col].fillna(0) * df[quantity_col].fillna(0)
 
@@ -265,11 +287,11 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
                 # df[profit_col] = df[unit_price_col].fillna(0)
         # logging.info(df)
         return df  
-    
+    print("------",combined_df)
     combined_df = calculate_financials_dynamic(
     combined_df
 )
-    print(combined_df)
+    
     # print(combined_df)
     def drop_all_nan_columns(df):
         """

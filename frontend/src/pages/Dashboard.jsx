@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
+import Docs from "./Docs";
 
 export default function Dashboard() {
   const [files, setFiles] = useState([]);
@@ -86,6 +87,11 @@ export default function Dashboard() {
 
       {loading && <div className="loading">⏳ Processing files...</div>}
 
+
+      <div className="docs-wrapper">
+          <Docs />
+        </div>
+
       {results && (
         <>
           {/* Summary */}
@@ -98,7 +104,7 @@ export default function Dashboard() {
               <h3>Columns</h3>
               <p>{results.columns.length}</p>
             </div>
-            <div className="card stat">
+            <div className="card stat full-width">
               <h3>Detected Fields</h3>
               <p className="small">{results.columns.join(", ")}</p>
             </div>

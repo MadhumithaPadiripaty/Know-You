@@ -165,7 +165,7 @@ body {
 /* ============================= */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
 }
 
@@ -186,7 +186,15 @@ body {
   font-size: 13px;
   color: #4b5563;
 }
+.full-width {
+  grid-column: 1 / -1;   /* span full row */
+  overflow-x: auto;      /* allow horizontal scroll if content is long */
+}
 
+.full-width p {
+  white-space: nowrap;   /* prevent line break inside text */
+  margin: 0;
+}
 /* ============================= */
 /* TOTALS */
 /* ============================= */
@@ -237,50 +245,62 @@ tr:hover {
 /* ============================= */
 /* ABOUT SECTION */
 /* ============================= */
-.about-toggle {
-  text-align: center;
-  margin: 20px 0;
-}
-
-.toggle-btn {
-  background-color: #4f46e5;
-  color: white;
-  border: none;
-  padding: 10px 22px;
-  font-size: 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.3s ease;
-}
-
-.toggle-btn:hover {
-  background-color: #4338ca;
-}
 
 .about-container {
-  background-color: #f9fafb;
-  border-left: 4px solid #4f46e5;
-  padding: 20px;
-  margin: 15px 0;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-  animation: fadeIn 0.3s ease-in-out;
+  background: #ffffff;
+  padding: 32px 36px;
+  margin: 32px auto;
+  max-width: 900px;
+
+  border-radius: 14px;
+  border-left: 5px solid #2563eb; /* brand accent */
+
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.05);
 }
 
-.about-container h2 {
-  margin-top: 0;
-  color: #1f2937;
+/* Main heading */
+.about-section h1 {
+  margin: 0 0 18px;
+  font-size: 28px;
+  font-weight: 600;
+  color: #1f2937; /* dark gray */
 }
 
-.about-intro {
+/* Paragraphs */
+.about-section p {
+  margin: 0 0 14px;
   font-size: 16px;
-  margin-bottom: 10px;
+  line-height: 1.7;
+  color: #4b5563; /* soft gray */
 }
 
-.about-details {
-  font-size: 14px;
+/* Improve reading rhythm */
+.about-section p:last-child {
+  margin-bottom: 0;
+}
+
+/* Optional: emphasize mission paragraph */
+.about-section p:nth-of-type(3) {
+  font-weight: 500;
   color: #374151;
 }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .about-section {
+    padding: 24px 20px;
+    margin: 24px 12px;
+  }
+
+  .about-section h1 {
+    font-size: 24px;
+  }
+
+  .about-section p {
+    font-size: 15px;
+  }
+}
+
 
 /* ============================= */
 /* ANIMATIONS */
@@ -312,5 +332,63 @@ tr:hover {
 
   .header h1 {
     font-size: 22px;
+  }
+}
+
+
+/* ============================= */ 
+/* DOC */
+/* ============================= */
+.doc {
+  background: #ffffff;
+  padding: 32px;
+  border-radius: 14px;
+  margin: 32px 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+}
+
+/* Main title */
+.doc h1 {
+  margin-bottom: 24px;
+  font-size: 26px;
+  color: #1f2937;
+}
+
+/* Each step block */
+.step {
+  padding: 18px 20px;
+  margin-bottom: 16px;
+  border-left: 5px solid #2563eb;
+  background: #f9fafb;
+  border-radius: 10px;
+}
+
+/* Step headings */
+.step h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: #1e40af;
+}
+
+/* Step text */
+.step p {
+  margin: 0;
+  font-size: 15px;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .doc {
+    padding: 22px;
+  }
+
+  .doc h1 {
+    font-size: 22px;
+  }
+
+  .step h2 {
+    font-size: 16px;
   }
 }
