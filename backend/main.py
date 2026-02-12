@@ -19,10 +19,12 @@ logging.basicConfig(level=logging.INFO)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://knowyourpay.com",
         "https://www.knowyourpay.com",
         "https://know-you-m73y.onrender.com"
 
     ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 ) 
@@ -217,7 +219,6 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
                         periodic[period]+=[col]
                     else :
                         periodic[period]=[col]
-        print(periodic)
         if len(periodic)!=0:
             for period in periodic:
                 unit_price_col = find_column(periodic[period], UNIT_PRICE_SYNONYMS)
@@ -261,33 +262,41 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
                     df[profit_col] = (df[revenue_col] - df[cost_col_name]).round(2)
 
                 elif revenue_col in df.columns:
-                    df[profit_col] = df[revenue_col]
+                    df[profit_col] = df[revenue_col].round(2)
 
                 elif cost_col_name in df.columns:
-                    df[profit_col] = -df[cost_col_name]
+                    df[profit_col] = -df[cost_col_name].round(2)
 
                 else:
                     df.drop(columns=[profit_col], errors="ignore", inplace=True)
 
-        # else:
-            
-        #     unit_exists = unit_price_col in df.columns and not df[unit_price_col].isna().all()
-        #     cost_exists = cost_col in df.columns and not df[cost_col].isna().all()
-        #     qty_exists = quantity_col in df.columns and not df[quantity_col].isna().all()
-        #     profit_col="profit" # create a generic profit column name
-        #     if unit_exists and cost_exists and qty_exists:
-        #         df[profit_col] = (df[unit_price_col].fillna(0) - df[cost_col].fillna(0)) * df[quantity_col].fillna(0)
- 
-        #     elif unit_exists and qty_exists:
-        #         df[profit_col] = df[unit_price_col].fillna(0) * df[quantity_col].fillna(0)
+        else:
+            if (any('profit' in col.lower() for col in df.columns)) != True:
+                unit_price_col = find_column(df, UNIT_PRICE_SYNONYMS)
+                cost_col = find_column(df, COST_SYNONYMS)
+                quantity_col = find_column(df, QUANTITY_SYNONYMS)      
+                profit_col="Profit" # create a generic profit column name
 
-        #     elif cost_exists and qty_exists:
-        #         df[profit_col] = -(df[cost_col].fillna(0) * df[quantity_col].fillna(0))
-        #     elif unit_exists :
-                # df[profit_col] = df[unit_price_col].fillna(0)
-        # logging.info(df)
+                if unit_price_col and cost_col and quantity_col:
+                    df[profit_col] = (df[unit_price_col] - df[cost_col]) * df[quantity_col]
+
+                elif unit_price_col and quantity_col:
+                    df[profit_col] = (df[unit_price_col] * df[quantity_col]).round(2)
+
+                elif cost_col and quantity_col:
+                    df[profit_col] = -(df[cost_col] * df[quantity_col]).round(2)
+
+                elif unit_price_col:
+                    df[profit_col] = (df[unit_price_col]).round(2)
+
+                else:
+                    PROFIT_SYNONYMS = ["profit", "net profit", "gross profit", "margin", "earnings",
+                   "sales", "revenue", "total sales", "sales amount", "amount", "turnover"]
+                    profit_col=(find_column(df,PROFIT_SYNONYMS)).round(2)
+
+
+        logging.info(df)
         return df  
-    print("------",combined_df)
     combined_df = calculate_financials_dynamic(
     combined_df
 )

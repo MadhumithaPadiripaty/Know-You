@@ -86,11 +86,6 @@ export default function Dashboard() {
 
       {loading && <div className="loading">⏳ Processing files...</div>}
 
-
-      <div className="docs-wrapper">
-          <Docs />
-        </div>
-
       {results && (
         <>
           {/* Summary */}
@@ -150,6 +145,9 @@ export default function Dashboard() {
           )}
         </>
       )}
+      <div className="docs-wrapper">
+          <Docs />
+        </div>
     </div>
   );
 }   
