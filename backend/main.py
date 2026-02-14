@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 from database import mongo_lifespan 
 import logging
 import pandas as pd
-import tempfile, os
 from typing import List
 import math
 import hashlib
