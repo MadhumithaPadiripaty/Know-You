@@ -8,6 +8,7 @@ export default function Dashboard() {
   const [results, setResults] = useState(null);
   const [topN, setTopN] = useState(10);
   const [loading, setLoading] = useState(false);
+  const [order, setOrder] = useState("desc");
 
   const handleFileChange = (e) => {
     setFiles(Array.from(e.target.files));
@@ -24,7 +25,7 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const response = await axios.post(        
-        "https://know-you-m73y.onrender.com/analyze",
+        `https://know-you-m73y.onrender.com/analyze?top_n=${topN}&order=${order}`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
@@ -79,6 +80,13 @@ export default function Dashboard() {
               value={topN}
               onChange={(e) => setTopN(Number(e.target.value))}
             />
+            <select
+              value={order}
+              onChange={(e) => setOrder(e.target.value)}
+            >
+              <option value="desc">Descending</option>
+              <option value="asc">Ascending</option>
+            </select>
             <button type="submit">Analyze</button>
           </div>
         </form>

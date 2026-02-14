@@ -9,8 +9,11 @@ import pandas as pd
 import tempfile, os
 from typing import List
 import math
+import hashlib
+import asyncio
+from io import BytesIO
  
-
+ANALYZE_CACHE = {}
 app = FastAPI(lifespan=mongo_lifespan) 
 
 logging.basicConfig(level=logging.INFO)
@@ -101,24 +104,23 @@ async def get_comments(request: Request):
 # -----------------------------
 def read_file(file: UploadFile):
     ext = file.filename.split(".")[-1].lower()
-    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
-        tmp.write(file.file.read())
-        path = tmp.name
+    contents = file.file.read()
+
     try:
         if ext in ["xlsx", "xls"]:
-            df = pd.read_excel(path,
-                engine="openpyxl")
+            return pd.read_excel(BytesIO(contents), engine="openpyxl")
+
         elif ext == "csv":
-            df = pd.read_csv(path)
+            return pd.read_csv(BytesIO(contents))
+
         elif ext == "pdf":
             import tabula
-            dfs = tabula.read_pdf(path, pages="all", multiple_tables=True)
-            df = pd.concat(dfs, ignore_index=True) if dfs else None
-        else:
-            df = None
-    finally:
-        os.remove(path)
-    return df
+            dfs = tabula.read_pdf(BytesIO(contents), pages="all", multiple_tables=True)
+            return pd.concat(dfs, ignore_index=True) if dfs else None
+
+        return None
+    except:
+        return None
  
 def safe_float(val):
     try:
@@ -136,67 +138,86 @@ UNIT_PRICE_SYNONYMS = ["unit price", "rate", "list price", "price per", "fee", "
 COST_SYNONYMS = ["unit cost","cost per unit", "cogs", "cost of goods sold", "standard cost", "production cost", "rate"]
 QUANTITY_SYNONYMS = ["quantity", "qty", "sold", "amount","units sold","units"]
 
-def find_column(df, keywords: List[str]):
-    for col in df:
+def find_column(columns, keywords: List[str]):
+    keywords = [kw.lower() for kw in keywords]
+    for col in columns:
         col_lower = col.lower()
-        for kw in keywords:
-            if kw in col_lower:
-                return col
+        if any(kw in col_lower for kw in keywords):
+            return col
     return None
- 
-def is_numeric_column(col, sample_size=5, threshold=0.6):
-    col_sample = col.dropna().head(sample_size).astype(str)
 
-    def check_numeric(val):
-        # strip symbols but keep digits, . and -
-        cleaned = "".join(c for c in val if c.isdigit() or c in ".-")
-        # if any letter in original value, not numeric
-        if any(c.isalpha() for c in val):
-            return False
-        return cleaned.replace(".", "", 1).replace("-", "", 1).isdigit() if cleaned else False
 
-    numeric_count = col_sample.apply(check_numeric).sum()
-    return numeric_count / max(1, len(col_sample)) >= threshold
+def is_numeric_column(col, sample_size=10, threshold=0.6):
+    sample = col.dropna().head(sample_size).astype(str)
+
+    if sample.empty:
+        return False
+
+    cleaned = sample.str.replace(r"[^\d\.\-]", "", regex=True)
+    numeric = pd.to_numeric(cleaned, errors="coerce")
+
+    return numeric.notna().mean() >= threshold
+
 
 def clean_numeric(col):
-    return col.astype(str).str.replace(r"[^\d\.\-]", "", regex=True).replace("", 0).astype(float)
+    cleaned = col.astype(str).str.replace(r"[^\d\.\-]", "", regex=True)
+    return pd.to_numeric(cleaned, errors="coerce").fillna(0)
+
 
 # -----------------------------
 # API
 # -----------------------------
 @app.post("/analyze")
-async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
-    combined_df = pd.DataFrame()
+async def analyze(files: List[UploadFile] = File(...), 
+    top_n: int = 10,order: str = "desc"):
+    # combined_df = pd.DataFrame()
+     # -----------------------------
+    # 0️⃣ Generate Cache Key
+    # -----------------------------
+    file_hash = hashlib.md5()
 
-    # Read all files
+    for file in files:
+        contents = await file.read()
+        file_hash.update(contents)
+        file.file.seek(0)  # VERY IMPORTANT: reset pointer
+
+    cache_key = f"{file_hash.hexdigest()}_{top_n}_{order.lower()}"
+
+    if cache_key in ANALYZE_CACHE:
+        return ANALYZE_CACHE[cache_key]
+    
+
+    # -----------------------------
+    # 1️⃣ Read & Combine (FASTER CONCAT)
+    # -----------------------------
+    combined_list = []
     for file in files:
         df = read_file(file)
         if df is not None and not df.empty:
-            combined_df = pd.concat([combined_df, df], ignore_index=True)
+            combined_list.append(df)
 
-    if combined_df.empty:
+    if not combined_list:
         return {"error": "No readable data found"}
 
-    # Identify numeric columns
-    numeric_input_cols = []
-    for col in combined_df.columns:
+    combined_df = pd.concat(combined_list, ignore_index=True)
+
+    # -----------------------------
+    # 2️⃣ Clean Numeric Columns (VECTOR DETECTION)
+    # -----------------------------
+    object_cols = combined_df.select_dtypes(include="object").columns
+
+    for col in object_cols:
         if is_numeric_column(combined_df[col]):
-            numeric_input_cols.append(col)
             combined_df[col] = clean_numeric(combined_df[col])
 
-    # Replace NaN values ONLY in partially-filled columns        
-    for col in combined_df.columns:
-    # Numeric columns → fill partial NaN with 0
-        if pd.api.types.is_numeric_dtype(combined_df[col]):
-            if combined_df[col].notna().any() and combined_df[col].isna().any():
-                combined_df[col] = combined_df[col].fillna(0)
+    # -----------------------------
+    # 3️⃣ Fast NaN Handling (VECTORISED)
+    # -----------------------------
+    numeric_cols = combined_df.select_dtypes(include="number").columns
+    object_cols = combined_df.select_dtypes(include="object").columns
 
-        # Object / string columns → fill partial NaN with "none"
-        elif pd.api.types.is_object_dtype(combined_df[col]):
-            if combined_df[col].notna().any() and combined_df[col].isna().any():
-                combined_df[col] = combined_df[col].fillna("none")
-
-    import re
+    combined_df[numeric_cols] = combined_df[numeric_cols].fillna(0)
+    combined_df[object_cols] = combined_df[object_cols].fillna("none")
 
     def calculate_financials_dynamic(df: pd.DataFrame):
         """
@@ -206,8 +227,6 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
         - Detects periods from existing columns automatically.
         """
         
-        # Detect periods from column names (e.g., Daily Revenue, Weekly Cost, Monthly Profit)
-        # pattern = re.compile(r"(\w+)\s+(Revenue|Cost|Profit)", re.IGNORECASE)
         PERIODIC_keywords = ["Daily", "Weekly", "Monthly", "Yearly"]
         periodic = {}
         for period in PERIODIC_keywords:
@@ -295,42 +314,70 @@ async def analyze(files: List[UploadFile] = File(...), top_n: int = 10):
                     profit_col=(find_column(df,PROFIT_SYNONYMS)).round(2)
 
 
-        logging.info(df)
         return df  
-    combined_df = calculate_financials_dynamic(
-    combined_df
-)
-    
-    # print(combined_df)
-    def drop_all_nan_columns(df):
-        """
-        Removes columns that are entirely NaN
-        """
-        return df.dropna(axis=1, how="all")
-
-    combined_df = drop_all_nan_columns(combined_df) 
-    
-    # Column totals for numeric columns
-    numeric_cols = [c for c in combined_df.columns if is_numeric_column(combined_df[c])]
-    column_totals = {col: float(combined_df[col].sum()) for col in numeric_cols}
- 
     # -----------------------------
-    # Top N profitable rows
+    # 4️⃣ Financial Calculations 
+    # -----------------------------
+    profit_exists = any("profit" in col.lower() for col in combined_df.columns)
+
+    if not profit_exists:
+        loop = asyncio.get_running_loop()
+        combined_df = await loop.run_in_executor(
+            None,
+            calculate_financials_dynamic,
+            combined_df
+        )
+
+    # -----------------------------
+    # 5️⃣ Drop Fully Empty Columns (Pandas Optimized)
+    # -----------------------------
+    combined_df = combined_df.dropna(axis=1, how="all")
+
+    # -----------------------------
+    # 6️⃣ Column Totals (FAST)
+    # -----------------------------
+    numeric_cols = combined_df.select_dtypes(include="number").columns
+    column_totals = combined_df[numeric_cols].sum().to_dict()
+
+    # Convert numpy types to float
+    column_totals = {k: float(v) for k, v in column_totals.items()}
+
+    # -----------------------------
+    # 7️⃣ Top N
     # -----------------------------
     top_items = []
-    profit_in_table =  next(
-            (col for col in combined_df.columns if 'profit' in col.lower()),
-            None
-        )
-    
-    if profit_in_table in combined_df.columns:
-        top_items = combined_df.sort_values(by=profit_in_table, ascending=False).head(top_n).to_dict(orient="records")
-    return {
-        "rows": len(combined_df), 
-        "columns": combined_df.columns.tolist(),
-        "column_totals": column_totals,
-        "top_items": top_items
-    }
+    profit_col = next(
+        (col for col in combined_df.columns if "profit" in col.lower()),
+        None
+    )
 
- 
- 
+    if profit_col and profit_col in combined_df.columns:
+
+        descending = order.lower() == "desc"
+
+        if pd.api.types.is_numeric_dtype(combined_df[profit_col]):
+
+            if descending:
+                top_df = combined_df.nlargest(top_n, profit_col)
+            else:
+                top_df = combined_df.nsmallest(top_n, profit_col)
+
+        else:
+            top_df = combined_df.sort_values(
+                by=profit_col,
+                ascending=not descending
+            ).head(top_n)
+
+        top_items = top_df.to_dict(orient="records")
+
+
+    response_data = {
+    "rows": len(combined_df),
+    "columns": combined_df.columns.tolist(),
+    "column_totals": column_totals,
+    "top_items": top_items
+}
+
+    ANALYZE_CACHE[cache_key] = response_data
+
+    return response_data
