@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import Docs from "./Docs";
+import CommentBox from "../components/CommentBox";
 
 export default function Dashboard() {
   const [files, setFiles] = useState([]);
@@ -24,7 +25,7 @@ export default function Dashboard() {
 
     setLoading(true);
     try {
-      const response = await axios.post(        
+      const response = await axios.post(    
         `https://know-you-m73y.onrender.com/analyze?top_n=${topN}&order=${order}`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
@@ -41,7 +42,7 @@ export default function Dashboard() {
   return (
     <div className="dashboard">
       <header className="header">
-        <img src="/logo.png" alt="Know Your Pay" class="logo" />
+        <img src="/logo.png" alt="Know Your Pay" className="logo" />
         <h1>Business Analysis Dashboard</h1>
         <p>Upload sales/cost files to analyze revenue & profit</p>
         {/* About Page Link */}
@@ -94,7 +95,7 @@ export default function Dashboard() {
 
       {loading && <div className="loading">⏳ Processing files...</div>}
 
-      {results && (
+      {results && !results.error &&(
         <>
           {/* Summary */}
           <div className="grid">
@@ -104,7 +105,7 @@ export default function Dashboard() {
             </div>
             <div className="card stat">
               <h3>Columns</h3>
-              <p>{results.columns.length}</p>
+              <p>{results?.columns?.length || 0}</p>
             </div>
             <div className="card stat full-width">
               <h3>Detected Fields</h3>
@@ -126,7 +127,7 @@ export default function Dashboard() {
           </div>
 
           {/* Top Items */}
-          {results.top_items.length > 0 && (
+          {results?.top_items?.length > 0 && (
             <div className="card">
               <h3>🏆 Top {topN} Products by Profit</h3>
               <div className="table-wrapper">
@@ -151,13 +152,18 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+          {results?.error && (
+            <div className="error">{results.error}</div>
+          )}
         </>
       )}
       <div className="docs-wrapper">
           <Docs />
         </div>
+      {/* <CommentBox /> */}
     </div>
   );
 }   
 
 
+// admin dashboard showing queue + workers + load visually

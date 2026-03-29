@@ -7,7 +7,6 @@ from database import mongo_lifespan
 import logging
 import pandas as pd
 from typing import List
-import math
 import hashlib
 import asyncio
 from io import BytesIO
@@ -32,46 +31,50 @@ app.add_middleware(
 ) 
 
 # -------------------- 
-# API routes 
+# API routes  
 # --------------------
 @app.get("/health")
-def health():
-    return {"message": "FastAPI backend is running"}
+async def health():
+    return {"status": "FastAPI backend is running"}
 
 
 
 # Middleware to log visits
 @app.middleware("http")
 async def log_visits(request: Request, call_next):
+    response = await call_next(request)
     try:
         db = request.app.state.db
-        await db.visits.insert_one({
-            "ip": request.client.host if request.client else "unknown",
-            "url": str(request.url),
-            "timestamp": datetime.now(timezone.utc)
-        })
+        # Run logging in background without blocking
+        asyncio.create_task(
+            db.visits.insert_one({
+                "ip": request.client.host if request.client else "unknown",
+                "url": str(request.url),
+                "timestamp": datetime.now(timezone.utc)
+            })
+        )
     except Exception as e:
         logging.error(f"Visit logging failed: {e}")
 
     
-    response = await call_next(request)
+    # response = await call_next(request)
     return response
 
-# Endpoint to submit comment
-@app.post("/comment")
-async def submit_comment(request: Request,
-    username: str = Form(...),
-    comment: str = Form(...)
-):
-    db = request.app.state.db
+# # Endpoint to submit comment
+# @app.post("/comment")
+# async def submit_comment(request: Request,
+#     username: str = Form(...),
+#     comment: str = Form(...)
+# ):
+#     db = request.app.state.db
 
-    doc = {
-        "username": username,
-        "comment": comment,
-        "timestamp": datetime.now(timezone.utc)
-    }
-    await db.comments.insert_one(doc)
-    return JSONResponse({"status": "success", "message": "Comment saved"})
+#     doc = {
+#         "username": username,
+#         "comment": comment,
+#         "timestamp": datetime.now(timezone.utc)
+#     }
+#     await db.comments.insert_one(doc)
+#     return JSONResponse({"status": "success", "message": "Comment saved"})
 
 # Endpoint to get stats
 @app.get("/stats")
@@ -90,12 +93,12 @@ async def get_stats(request: Request):
         "analyze_count": analyze_count
     }
   
-# Endpoint to get comments
-@app.get("/comments")
-async def get_comments(request: Request):
-    db = request.app.state.db
-    comments = await db.comments.find().to_list(length=100)
-    return comments
+# # Endpoint to get comments
+# @app.get("/comments")
+# async def get_comments(request: Request):
+#     db = request.app.state.db
+#     comments = await db.comments.find().to_list(length=100)
+#     return comments
 
 
 # -----------------------------
@@ -103,14 +106,15 @@ async def get_comments(request: Request):
 # -----------------------------
 def read_file(file: UploadFile):
     ext = file.filename.split(".")[-1].lower()
-    contents = file.file.read()
 
     try:
-        if ext in ["xlsx", "xls"]:
-            return pd.read_excel(BytesIO(contents), engine="openpyxl")
+        contents = file.file.read()
 
-        elif ext == "csv":
+        if ext == "csv":
             return pd.read_csv(BytesIO(contents))
+
+        elif ext in ["xlsx", "xls"]:
+            return pd.read_excel(BytesIO(contents), engine="openpyxl")
 
         elif ext == "pdf":
             import tabula
@@ -118,17 +122,19 @@ def read_file(file: UploadFile):
             return pd.concat(dfs, ignore_index=True) if dfs else None
 
         return None
-    except:
+    
+    except Exception as e:
+        print("-----------File read error:", e)
         return None
  
-def safe_float(val):
-    try:
-        f = float(val)
-        if math.isinf(f) or math.isnan(f):
-            return 0
-        return f
-    except:
-        return 0
+# def safe_float(val):
+#     try:
+#         f = float(val)
+#         if math.isinf(f) or math.isnan(f):
+#             return 0
+#         return f
+#     except:
+#         return 0
 
 # -----------------------------
 # Column identification
@@ -146,7 +152,7 @@ def find_column(columns, keywords: List[str]):
     return None
 
 
-def is_numeric_column(col, sample_size=10, threshold=0.6):
+def is_numeric_column(col, sample_size=20, threshold=0.7):
     sample = col.dropna().head(sample_size).astype(str)
 
     if sample.empty:
@@ -155,12 +161,14 @@ def is_numeric_column(col, sample_size=10, threshold=0.6):
     cleaned = sample.str.replace(r"[^\d\.\-]", "", regex=True)
     numeric = pd.to_numeric(cleaned, errors="coerce")
 
-    return numeric.notna().mean() >= threshold
+    ratio = numeric.notna().mean()
+
+    return ratio >= threshold
 
 
 def clean_numeric(col):
     cleaned = col.astype(str).str.replace(r"[^\d\.\-]", "", regex=True)
-    return pd.to_numeric(cleaned, errors="coerce").fillna(0)
+    return pd.to_numeric(cleaned, errors="coerce")
 
 
 # -----------------------------
@@ -176,15 +184,35 @@ async def analyze(files: List[UploadFile] = File(...),
     file_hash = hashlib.md5()
 
     for file in files:
-        contents = await file.read()
-        file_hash.update(contents)
-        file.file.seek(0)  # VERY IMPORTANT: reset pointer
+        chunk_size = 3 * 1024 * 1024
+        file.file.seek(0)
+        while True:
+            chunk = file.file.read(chunk_size)
+            if not chunk:
+                break
+            file_hash.update(chunk)
+
+
+        file.file.seek(0)  # VERY IMPORTANT: reset pointer¸
 
     cache_key = f"{file_hash.hexdigest()}_{top_n}_{order.lower()}"
+    print("111-------")
+
 
     if cache_key in ANALYZE_CACHE:
         return ANALYZE_CACHE[cache_key]
     
+
+    # file_hash = hashlib.md5()  
+
+    # for file in files:
+    #     contents = await file.read()
+    #     file_hash.update(contents)
+    #     file.file.seek(0)  # VERY IMPORTANT: reset pointer
+
+    # cache_key = f"{file_hash.hexdigest()}_{top_n}_{order.lower()}"
+    # if cache_key in ANALYZE_CACHE:
+    #     return ANALYZE_CACHE[cache_key]
 
     # -----------------------------
     # 1️⃣ Read & Combine (FASTER CONCAT)
@@ -311,7 +339,7 @@ async def analyze(files: List[UploadFile] = File(...),
                     PROFIT_SYNONYMS = ["profit", "net profit", "gross profit", "margin", "earnings",
                    "sales", "revenue", "total sales", "sales amount", "amount", "turnover"]
                     profit_col=(find_column(df,PROFIT_SYNONYMS)).round(2)
-
+        print(df)
 
         return df  
     # -----------------------------
@@ -379,4 +407,5 @@ async def analyze(files: List[UploadFile] = File(...),
 
     ANALYZE_CACHE[cache_key] = response_data
 
-    return response_data
+    return response_data  
+    # return JSONResponse(content=ANALYZE_CACHE[cache_key])             
