@@ -3,6 +3,7 @@ import axios from "axios";
 import { Link } from "react-router-dom";
 import Docs from "./Docs";
 import CommentBox from "../components/CommentBox";
+import { useRef } from "react";
 
 export default function Dashboard() {
   const [files, setFiles] = useState([]);
@@ -10,6 +11,8 @@ export default function Dashboard() {
   const [topN, setTopN] = useState(10);
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState("desc");
+  const commentRef = useRef(null);
+
 
   const handleFileChange = (e) => {
     setFiles(Array.from(e.target.files));
@@ -22,11 +25,12 @@ export default function Dashboard() {
     const formData = new FormData();
     files.forEach((file) => formData.append("files", file));
     formData.append("top_n", topN);
-
     setLoading(true);
     try {
       const response = await axios.post(    
-        `https://know-you-m73y.onrender.com/analyze?top_n=${topN}&order=${order}`,
+        // `https://know-you-m73y.onrender.com/analyze?top_n=${topN}&order=${order}`,
+        `http://localhost:8000/analyze?top_n=${topN}&order=${order}`,
+
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
@@ -37,6 +41,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
+  
   };
 
   return (
@@ -49,6 +54,13 @@ export default function Dashboard() {
         <Link to="/about">
           <button className="go-to-about-btn">About</button>
         </Link>
+        <button className="go-to-about-btn"
+          onClick={() =>
+            commentRef.current?.scrollIntoView({ behavior: "smooth" })
+          }
+        >
+         Comment
+        </button>
       </header>
 
       {/* Upload Card */}
@@ -160,7 +172,9 @@ export default function Dashboard() {
       <div className="docs-wrapper">
           <Docs />
         </div>
-      {/* <CommentBox /> */}
+      <div ref={commentRef}>
+      <CommentBox /> 
+      </div>
     </div>
   );
 }   

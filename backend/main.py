@@ -4,12 +4,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from datetime import datetime, timezone
 from database import mongo_lifespan 
+from fastapi import BackgroundTasks
 import logging
 import pandas as pd
 from typing import List
 import hashlib
 import asyncio
+from dotenv import load_dotenv
 from io import BytesIO
+import os
  
 ANALYZE_CACHE = {}
 app = FastAPI(lifespan=mongo_lifespan) 
@@ -17,12 +20,14 @@ app = FastAPI(lifespan=mongo_lifespan)
 logging.basicConfig(level=logging.INFO)
 
 
+origins = os.getenv("ALLOWED_ORIGINS", "")
+origins = [o.strip() for o in origins.split(",") if o]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://knowyourpay.com",
-        "https://www.knowyourpay.com",
-        "https://know-you-m73y.onrender.com"
+        origins,
+        "*"
 
     ],
     allow_credentials=True,
@@ -30,53 +35,68 @@ app.add_middleware(
     allow_headers=["*"],
 ) 
 
-# -------------------- 
+# -----------------------------
 # API routes  
-# --------------------
+# -----------------------------
+
+
+# HEALTH
 @app.get("/health")
 async def health():
     return {"status": "FastAPI backend is running"}
 
 
-
+# -------------------- 
 # Middleware to log visits
+# -------------------- 
 @app.middleware("http")
 async def log_visits(request: Request, call_next):
     response = await call_next(request)
     try:
         db = request.app.state.db
         # Run logging in background without blocking
-        asyncio.create_task(
-            db.visits.insert_one({
-                "ip": request.client.host if request.client else "unknown",
-                "url": str(request.url),
-                "timestamp": datetime.now(timezone.utc)
-            })
-        )
+        if db is not None:
+            background = BackgroundTasks()
+            background.add_task(log_to_db, db, request)
+            response.background = background  # attach to response
+
     except Exception as e:
         logging.error(f"Visit logging failed: {e}")
 
     
-    # response = await call_next(request)
     return response
+async def log_to_db(db, request):
+    await db.visits.insert_one({
+        "ip": request.client.host if request.client else "unknown",
+        "url": str(request.url),
+        "timestamp": datetime.now(timezone.utc)
+    })
+# 
 
-# # Endpoint to submit comment
-# @app.post("/comment")
-# async def submit_comment(request: Request,
-#     username: str = Form(...),
-#     comment: str = Form(...)
-# ):
-#     db = request.app.state.db
+# -------------------
+# ADD COMMENT(submit comment)
+# -------------------
+@app.post("/comment")
+async def submit_comment(request: Request,
+    username: str = Form(...),
+    comment: str = Form(...)
+):
+    db = request.app.state.db
+    if db is None:
+        return {"error": "Database not available"}
 
-#     doc = {
-#         "username": username,
-#         "comment": comment,
-#         "timestamp": datetime.now(timezone.utc)
-#     }
-#     await db.comments.insert_one(doc)
-#     return JSONResponse({"status": "success", "message": "Comment saved"})
+    doc = {
+        "username": username.strip(),
+        "comment": comment.strip(),
+        "timestamp": datetime.now(timezone.utc)
+    }
+    await db.comments.insert_one(doc)
+    return JSONResponse({"status": "success", "message": "Comment saved"})
 
-# Endpoint to get stats
+
+# ------------------
+# STATS(get stats)
+# ------------------
 @app.get("/stats")
 async def get_stats(request: Request):
     db = request.app.state.db
@@ -90,15 +110,26 @@ async def get_stats(request: Request):
     return {
         "total_visits": total_visits,
         "unique_visitors": total_unique,
-        "analyze_count": analyze_count
+        "analyze_count": analyze_count,
+        "total_unique":total_unique
     }
   
-# # Endpoint to get comments
-# @app.get("/comments")
-# async def get_comments(request: Request):
-#     db = request.app.state.db
-#     comments = await db.comments.find().to_list(length=100)
-#     return comments
+# ------------------- 
+# GET COMMENTS(get comments)
+# -------------------
+@app.get("/comments")
+async def get_comments(request: Request):
+    db = request.app.state.db
+    comments = await( db.comments
+    .find()
+    .sort("timestamp", -1)
+    .to_list(length=100)
+    )
+     # ✅ Fix ObjectId issue
+    for c in comments:
+        c["_id"] = str(c["_id"])
+
+    return comments
 
 
 # -----------------------------

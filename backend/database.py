@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from dotenv import load_dotenv
 import os
 import logging
+
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
@@ -12,7 +13,7 @@ DB_NAME = os.getenv("MONGO_DB_NAME", "Know_your_pay")  # fallback name
 
 if not MONGO_URI:
     logging.info("🛑 MongoDB not connected")
-    raise RuntimeError("❌ MONGO_URI environment variable is not set")
+    # raise RuntimeError("❌ MONGO_URI environment variable is not set")
 
 @asynccontextmanager
 async def mongo_lifespan(app: FastAPI):
