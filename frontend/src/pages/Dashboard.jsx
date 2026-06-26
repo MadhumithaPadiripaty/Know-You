@@ -29,7 +29,6 @@ export default function Dashboard() {
     try {
       const response = await axios.post(    
         `https://know-you-m73y.onrender.com/analyze?top_n=${topN}&order=${order}`,
-
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
